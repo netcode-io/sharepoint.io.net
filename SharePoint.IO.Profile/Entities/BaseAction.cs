@@ -2,6 +2,7 @@
 using Microsoft.SharePoint.Client;
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 
 namespace SharePoint.IO.Profile.Entities
@@ -50,13 +51,13 @@ namespace SharePoint.IO.Profile.Entities
         /// <param name="tag">The tag.</param>
         /// <param name="context">The ClientContext instance.</param>
         /// <param name="entries">The collection values per row.</param>
-        /// <param name="logger">The logger.</param>
-        public abstract void IterateCollection(object tag, ClientContext context, Collection<string> entries, ILogger logger);
+        /// <param name="log">The log.</param>
+        public abstract Task IterateCollectionAsync(object tag, ClientContext context, Collection<string> entries, ILogger log);
 
         /// <summary>
         /// Executes the business logic
         /// </summary>
-        /// <param name="logger">The logger.</param>
-        public abstract void Execute(BaseAction parentAction, DateTime CurrentTime, ILogger logger = null);
+        /// <param name="log">The log.</param>
+        public abstract Task ExecuteAsync(BaseAction parentAction, DateTime CurrentTime, ILogger log);
     }
 }

@@ -12,6 +12,13 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.9" />
     <PackageReference Include="System.DirectoryServices" Version="4.7.0" />
     <PackageReference Include="System.DirectoryServices.Protocols" Version="4.7.0" />
+    <PackageReference Include="System.ServiceModel.Duplex" Version="4.4.*" />
+    <PackageReference Include="System.ServiceModel.Http" Version="4.4.*" />
+    <PackageReference Include="System.ServiceModel.NetTcp" Version="4.4.*" />
+    <PackageReference Include="System.ServiceModel.Security" Version="4.4.*" />
     <PackageReference Include="TTCUE.NetCore.SharepointOnline.CSOM.16.1.8029.1200" Version="16.1.8029.1200" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services" />
   </ItemGroup>
 </Project>

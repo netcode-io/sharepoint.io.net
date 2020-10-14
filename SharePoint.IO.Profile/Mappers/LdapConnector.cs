@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 
 namespace SharePoint.IO.Profile.Mappers
 {
@@ -48,7 +49,7 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="entries">The collection values per row.</param>
         /// <param name="log">The log.</param>
         /// <exception cref="System.NotImplementedException"></exception>
-        public override void IterateCollection(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries, ILogger log) => throw new NotImplementedException();
+        public override Task IterateCollectionAsync(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries, ILogger log) => throw new NotImplementedException();
 
         /// <summary>
         /// Executes the LDAP logic
@@ -56,9 +57,9 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="parentAction">Inherit parent properties = null</param>
         /// <param name="currentTime">Locked program timestamp value</param>
         /// <param name="log">The logger.</param>
-        public override void Execute(BaseAction parentAction, DateTime currentTime, ILogger log)
+        public override async Task ExecuteAsync(BaseAction parentAction, DateTime currentTime, ILogger log)
         {
-            ExtractLdapResults(log, currentTime);
+            await ExtractLdapResultsAsync(log, currentTime);
             log.LogInformation($"Successfully extracted {_totalUsers} user objects from {ServerName} with {_totalFailures} failures");
         }
 
@@ -79,7 +80,7 @@ namespace SharePoint.IO.Profile.Mappers
         /// </summary>
         /// <param name="logger">The logger.</param>
         /// <param name="currentTime">Locked program timestamp value</param>
-        void ExtractLdapResults(ILogger log, DateTime currentTime)
+        Task ExtractLdapResultsAsync(ILogger log, DateTime currentTime)
         {
             var attributesToAdd = new List<string>();
             foreach (var item in Properties)
@@ -94,7 +95,7 @@ namespace SharePoint.IO.Profile.Mappers
             log.LogInformation($"Establishing LDAP Connection to: {ServerName}");
             using (var connection = CreateLdapConnection())
             {
-                log.LogInformation(string.Format("Performing a {0} operation with filter: {1}", BatchAction, ldapFilter));
+                log.LogInformation($"Performing a {BatchAction} operation with filter: {ldapFilter}");
                 while (true)
                 {
                     SearchResponse response = null;
@@ -178,6 +179,7 @@ namespace SharePoint.IO.Profile.Mappers
                         break;
                 }
             }
+            return Task.CompletedTask;
         }
 
         string CreateUserAccountName(string value, DirectoryAttribute attr)

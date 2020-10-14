@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SharePoint.IO.Profile.Mappers
 {
@@ -41,7 +42,7 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="log">The log.</param>
         /// <exception cref="NotImplementedException"></exception>
         /// <exception cref="System.NotImplementedException"></exception>
-        public override void IterateCollection(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries, ILogger log) => throw new NotImplementedException();
+        public override Task IterateCollectionAsync(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries, ILogger log) => throw new NotImplementedException();
 
         /// <summary>
         /// Executes the SQL logic
@@ -49,9 +50,9 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="parentAction">Inherit parent properties = null</param>
         /// <param name="currentTime">Locked program timestamp value</param>
         /// <param name="log">The log.</param>
-        public override void Execute(BaseAction parentAction, DateTime currentTime, ILogger log)
+        public override async Task ExecuteAsync(BaseAction parentAction, DateTime currentTime, ILogger log)
         {
-            ExtractSqlResults(log, currentTime);
+            await ExtractSqlResultsAsync(log, currentTime);
             log.LogInformation($"Successfully extracted {_totalUsers} user objects from {ConnectionName} with {_totalFailures} failures");
         }
 
@@ -72,14 +73,14 @@ namespace SharePoint.IO.Profile.Mappers
         /// </summary>
         /// <param name="log">The log.</param>
         /// <param name="currentTime">Locked program timestamp value</param>
-        private void ExtractSqlResults(ILogger log, DateTime currentTime)
+        async Task ExtractSqlResultsAsync(ILogger log, DateTime currentTime)
         {
             log.LogInformation($"Establishing SQL Connection to: {ConnectionName}");
             using (var connection = CreateSqlConnection())
             {
                 log.LogInformation($"Performing a sql operation on: {StoredProcedure}");
                 List<dynamic> set = null;
-                try { set = connection.Query(StoredProcedure, null, commandType: CommandType.StoredProcedure, commandTimeout: CommandTimeout).ToList(); }
+                try { set = (await connection.QueryAsync(StoredProcedure, null, commandType: CommandType.StoredProcedure, commandTimeout: CommandTimeout)).ToList(); }
                 catch (Exception e) { throw new Exception("An error occurred whilst querying", e); }
 
                 foreach (var items in GroupAt(set, PageSize, x => x))
