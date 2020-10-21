@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace SharePoint.IO.Managers
+namespace SharePoint.IO.Services
 {
-    internal class PreProcess
+    internal class ContentService
     {
         public static string Process(string s, string[] defines)
         {

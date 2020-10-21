@@ -1,4 +1,6 @@
-﻿using Microsoft.SharePoint.Client;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.SharePoint.Client;
+using SharePoint.IO.Services;
 using System;
 using System.IO;
 using System.Text;
@@ -7,30 +9,80 @@ using File = Microsoft.SharePoint.Client.File;
 
 namespace SharePoint.IO.Managers
 {
+    /// <summary>
+    /// FileShaman
+    /// </summary>
     public class FileShaman
     {
-        readonly Web _web;
         public static char[] TrimChars = { '/' };
         const string StyleLibraryUrl = "Style Library";
+        readonly Web _web;
+        readonly ILogger _log;
 
-        public FileShaman(Web web) => _web = web;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FileShaman" /> class.
+        /// </summary>
+        /// <param name="web">The web.</param>
+        /// <param name="log">The log.</param>
+        public FileShaman(Web web, ILogger log)
+        {
+            _web = web;
+            _log = log;
+        }
 
-        public Lazy<FolderShaman> Folder => new Lazy<FolderShaman>(() => new FolderShaman(_web));
+        /// <summary>
+        /// Gets the folder.
+        /// </summary>
+        /// <value>
+        /// The folder.
+        /// </value>
+        public Lazy<FolderShaman> Folder => new Lazy<FolderShaman>(() => new FolderShaman(_web, _log));
 
+        /// <summary>
+        /// Uploads to style library asynchronous.
+        /// </summary>
+        /// <param name="path">The path.</param>
+        /// <param name="serverFolder">The server folder.</param>
         public async Task UploadToStyleLibraryAsync(string path, string serverFolder = null)
         {
             var file = path.Replace("\\", "/");
             var libraryUrl = $"{_web.ServerRelativeUrl.TrimEnd(TrimChars)}/{StyleLibraryUrl}/";
-            Console.WriteLine($"Uploading file {file} to {libraryUrl}{serverFolder}");
-            await Folder.Value.EnsureFoldersAsync(libraryUrl, serverFolder, file);
+            _log?.LogInformation($"Uploading file {file} to {libraryUrl}{serverFolder}");
+            await Folder.Value.EnsurePathAsync(libraryUrl, serverFolder, file);
             await CheckOutFileAsync(file, libraryUrl, serverFolder);
-            var uploadedFile = await AddFileToAsync(libraryUrl, path, file, serverFolder);
+            var uploadedFile = await AddFileAsync(libraryUrl, path, file, serverFolder);
             await CheckInPublishAndApproveFileAsync(uploadedFile);
         }
 
-        public Task<File> AddFileToAsync(string libraryUrl, string path, string file = null, string serverFolder = null, string[] defines = null) => AddFileToAsync(libraryUrl, GetContent(path, defines), file ?? Path.GetFileName(path), serverFolder);
-        public Task<File> AddFileToAsync(string libraryUrl, Stream stream, string file, string serverFolder = null, string[] defines = null) => AddFileToAsync(libraryUrl, GetContent(stream, defines), file, serverFolder);
-        public async Task<File> AddFileToAsync(string libraryUrl, byte[] content, string file, string serverFolder)
+        /// <summary>
+        /// Adds the file asynchronous.
+        /// </summary>
+        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="path">The path.</param>
+        /// <param name="file">The file.</param>
+        /// <param name="serverFolder">The server folder.</param>
+        /// <param name="defines">The defines.</param>
+        /// <returns></returns>
+        public Task<File> AddFileAsync(string libraryUrl, string path, string file = null, string serverFolder = null, string[] defines = null) => AddFileAsync(libraryUrl, GetContent(path, defines), file ?? Path.GetFileName(path), serverFolder);
+        /// <summary>
+        /// Adds the file asynchronous.
+        /// </summary>
+        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="stream">The stream.</param>
+        /// <param name="file">The file.</param>
+        /// <param name="serverFolder">The server folder.</param>
+        /// <param name="defines">The defines.</param>
+        /// <returns></returns>
+        public Task<File> AddFileAsync(string libraryUrl, Stream stream, string file, string serverFolder = null, string[] defines = null) => AddFileAsync(libraryUrl, GetContent(stream, defines), file, serverFolder);
+        /// <summary>
+        /// Adds the file asynchronous.
+        /// </summary>
+        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="file">The file.</param>
+        /// <param name="serverFolder">The server folder.</param>
+        /// <returns></returns>
+        public async Task<File> AddFileAsync(string libraryUrl, byte[] content, string file, string serverFolder)
         {
             var serverUrl = $"{libraryUrl.EnsureEndsWith("/")}{serverFolder}";
             var fileUrl = $"{serverUrl.EnsureEndsWith("/")}{file}";
@@ -41,6 +93,7 @@ namespace SharePoint.IO.Managers
                 Url = fileUrl,
                 Overwrite = true
             };
+            _log?.LogInformation($"Adding file {file} to {libraryUrl}{serverFolder}");
             var uploadedFile = folder.Files.Add(spFile);
             _web.Context.Load(uploadedFile, f => f.CheckOutType, f => f.Level);
             await _web.Context.ExecuteQueryAsync();
@@ -50,7 +103,7 @@ namespace SharePoint.IO.Managers
         byte[] GetContent(string path, string[] defines) =>
             defines == null
                 ? System.IO.File.ReadAllBytes(path)
-                : Encoding.UTF8.GetBytes(PreProcess.Process(System.IO.File.ReadAllText(path), defines));
+                : Encoding.UTF8.GetBytes(ContentService.Process(System.IO.File.ReadAllText(path), defines));
 
         byte[] GetContent(Stream stream, string[] defines)
         {
@@ -64,24 +117,36 @@ namespace SharePoint.IO.Managers
             }
             return defines == null
                 ? bytes
-                : Encoding.UTF8.GetBytes(PreProcess.Process(Encoding.UTF8.GetString(bytes), defines));
+                : Encoding.UTF8.GetBytes(ContentService.Process(Encoding.UTF8.GetString(bytes), defines));
         }
 
-        public async Task CheckInPublishAndApproveFileAsync(File file)
+        /// <summary>
+        /// Checks the in publish and approve file asynchronous.
+        /// </summary>
+        /// <param name="file">The file.</param>
+        /// <param name="comment">The comment.</param>
+        /// <param name="checkInType">Type of the check in.</param>
+        public async Task CheckInPublishAndApproveFileAsync(File file, string comment = null, CheckinType? checkInType = null)
         {
             if (file.CheckOutType != CheckOutType.None)
-                file.CheckIn("Updating file", CheckinType.MajorCheckIn);
+                file.CheckIn(comment ?? "Updating file", checkInType ?? CheckinType.MajorCheckIn);
             if (file.Level == FileLevel.Draft)
-                file.Publish("Updating file");
+                file.Publish(comment ?? "Updating file");
             file.Context.Load(file, f => f.ListItemAllFields);
             await file.Context.ExecuteQueryAsync();
             if (file.ListItemAllFields["_ModerationStatus"].ToString() == "2") //: pending
             {
-                file.Approve("Updating file");
+                file.Approve(comment ?? "Updating file");
                 await file.Context.ExecuteQueryAsync();
             }
         }
 
+        /// <summary>
+        /// Checks the out file asynchronous.
+        /// </summary>
+        /// <param name="fileName">Name of the file.</param>
+        /// <param name="filePath">The file path.</param>
+        /// <param name="fileFolder">The file folder.</param>
         public async Task CheckOutFileAsync(string fileName, string filePath, string fileFolder)
         {
             var fileUrl = $"{filePath}{fileFolder}{(string.IsNullOrEmpty(fileFolder) ? string.Empty : "/")}{fileName}";

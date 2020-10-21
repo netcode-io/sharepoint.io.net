@@ -1,17 +1,37 @@
-﻿using Microsoft.SharePoint.Client;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.SharePoint.Client;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SharePoint.IO.Managers
 {
+    /// <summary>
+    /// FolderShaman
+    /// </summary>
     public class FolderShaman
     {
         readonly Web _web;
+        readonly ILogger _log;
 
-        public FolderShaman(Web web) => _web = web;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FolderShaman" /> class.
+        /// </summary>
+        /// <param name="web">The web.</param>
+        /// <param name="log">The log.</param>
+        public FolderShaman(Web web, ILogger log)
+        {
+            _web = web;
+            _log = log;
+        }
 
-        public async Task EnsureFoldersAsync(string filePath, string fileFolder, string fileName)
+        /// <summary>
+        /// Ensures the path asynchronous.
+        /// </summary>
+        /// <param name="filePath">The file path.</param>
+        /// <param name="fileFolder">The file folder.</param>
+        /// <param name="fileName">Name of the file.</param>
+        public async Task EnsurePathAsync(string filePath, string fileFolder, string fileName)
         {
             var folder = await EnsureFolderAsync(filePath, fileFolder);
             var folderUrls = fileName.Split(new[] { "/" }, StringSplitOptions.RemoveEmptyEntries);
@@ -21,6 +41,13 @@ namespace SharePoint.IO.Managers
                 parent = await EnsureFolderAsync(filePath, folderUrl, parent);
         }
 
+        /// <summary>
+        /// Ensures the folder asynchronous.
+        /// </summary>
+        /// <param name="listUrl">The list URL.</param>
+        /// <param name="folderUrl">The folder URL.</param>
+        /// <param name="parentFolder">The parent folder.</param>
+        /// <returns></returns>
         public async Task<Folder> EnsureFolderAsync(string listUrl, string folderUrl, Folder parentFolder = null)
         {
             if (string.IsNullOrEmpty(folderUrl))

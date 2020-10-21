@@ -11,6 +11,14 @@ namespace SharePoint.IO.Profile.Services
     /// </summary>
     public class CsvReader
     {
+        readonly ILogger _log;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CsvReader"/> class.
+        /// </summary>
+        /// <param name="log">The log.</param>
+        public CsvReader(ILogger log) => _log = log;
+
         /// <summary>
         /// The delimiter as string
         /// </summary>
@@ -52,9 +60,8 @@ namespace SharePoint.IO.Profile.Services
         /// </summary>
         /// <param name="reader">The reader instance.</param>
         /// <param name="action">The logic to execute.</param>
-        /// <param name="logger">The logger.</param>
         /// <exception cref="System.ArgumentNullException">If the reader instance is null</exception>
-        public void Execute(TextReader reader, Action<Collection<string>, ILogger> action, ILogger log)
+        public void Execute(TextReader reader, Action<Collection<string>, ILogger> action)
         {
             if (reader == null)
                 throw new ArgumentNullException(nameof(reader));
@@ -78,13 +85,13 @@ namespace SharePoint.IO.Profile.Services
                         try
                         {
                             var entries = ParseLineIntoEntries(line);
-                            action.Invoke(entries, log);
+                            action.Invoke(entries, _log);
                         }
-                        catch (Exception e) { log.LogCritical(e, string.Empty); }
+                        catch (Exception e) { _log?.LogCritical(e, string.Empty); }
                     }
                 }
             }
-            catch (Exception e) { log.LogCritical(e, string.Empty); }
+            catch (Exception e) { _log?.LogCritical(e, string.Empty); }
         }
 
         /// <summary>
@@ -123,7 +130,7 @@ namespace SharePoint.IO.Profile.Services
                     }
                 }
                 if (flag || lineArray[i] != Delimiter)
-                    str = str + lineArray[i];
+                    str += lineArray[i];
                 else
                 {
                     str = str.Trim();

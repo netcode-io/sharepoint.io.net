@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.SharePoint.Client;
 using SharePoint.IO.Managers;
 using SharePoint.IO.Services.Branding;
@@ -9,37 +10,78 @@ using System.Threading.Tasks;
 
 namespace SharePoint.IO.Services
 {
+    /// <summary>
+    /// BrandingService
+    /// </summary>
     public class BrandingService
     {
         readonly ClientContext _ctx;
         readonly string _target;
         readonly string[] _defines;
         readonly IBranding _branding;
+        readonly ILogger _log;
         readonly Web _web;
         readonly FileShaman _fileShaman;
         readonly PageShaman _pageShaman;
         readonly JsInjector _jsInjector;
         readonly SPWebManager _webManager;
 
-        public BrandingService(ClientContext ctx, IConfigurationSection section, string target = null, string[] defines = null)
-            : this(ctx, target, defines, new BrandingFromSection(section, target)) { }
-        public BrandingService(ClientContext ctx, string target = null, string[] defines = null, params object[] objs)
-            : this(ctx, target, defines, new BrandingFromManifest(target, objs.Select(x => x.GetType().Assembly).Distinct().ToList())) { }
-        public BrandingService(ClientContext ctx, string target = null, string[] defines = null, params Assembly[] assemblies)
-            : this(ctx, target, defines, new BrandingFromManifest(target, assemblies)) { }
-        public BrandingService(ClientContext ctx, string target, string[] defines, IBranding branding)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BrandingService"/> class.
+        /// </summary>
+        /// <param name="ctx">The CTX.</param>
+        /// <param name="section">The section.</param>
+        /// <param name="target">The target.</param>
+        /// <param name="defines">The defines.</param>
+        /// <param name="log">The log.</param>
+        public BrandingService(ClientContext ctx, IConfigurationSection section, string target = null, string[] defines = null, ILogger log = null)
+            : this(ctx, target, defines, log, new BrandingFromSection(section, target)) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BrandingService"/> class.
+        /// </summary>
+        /// <param name="ctx">The CTX.</param>
+        /// <param name="target">The target.</param>
+        /// <param name="defines">The defines.</param>
+        /// <param name="log">The log.</param>
+        /// <param name="objs">The objs.</param>
+        public BrandingService(ClientContext ctx, string target = null, string[] defines = null, ILogger log = null, params object[] objs)
+            : this(ctx, target, defines, log, new BrandingFromManifest(target, objs.Select(x => x.GetType().Assembly).Distinct().ToList())) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BrandingService"/> class.
+        /// </summary>
+        /// <param name="ctx">The CTX.</param>
+        /// <param name="target">The target.</param>
+        /// <param name="defines">The defines.</param>
+        /// <param name="log">The log.</param>
+        /// <param name="assemblies">The assemblies.</param>
+        public BrandingService(ClientContext ctx, string target = null, string[] defines = null, ILogger log = null, params Assembly[] assemblies)
+            : this(ctx, target, defines, log, new BrandingFromManifest(target, assemblies)) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BrandingService"/> class.
+        /// </summary>
+        /// <param name="ctx">The CTX.</param>
+        /// <param name="target">The target.</param>
+        /// <param name="defines">The defines.</param>
+        /// <param name="log">The log.</param>
+        /// <param name="branding">The branding.</param>
+        public BrandingService(ClientContext ctx, string target, string[] defines, ILogger log, IBranding branding)
         {
             _ctx = ctx;
             _target = target;
             _defines = defines;
             _branding = branding;
-            _webManager = new SPWebManager(_ctx);
+            _log = log;
+            _webManager = new SPWebManager(_ctx, log);
             _web = _webManager.LoadWebAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-            _fileShaman = new FileShaman(_web);
-            _pageShaman = new PageShaman(_web);
-            _jsInjector = new JsInjector(_web);
+            _fileShaman = new FileShaman(_web, log);
+            _pageShaman = new PageShaman(_web, log);
+            _jsInjector = new JsInjector(_web, log);
         }
 
+        /// <summary>
+        /// Deploys all asynchronous.
+        /// </summary>
+        /// <param name="appFolder">The application folder.</param>
         public async Task DeployAllAsync(string appFolder = "APP")
         {
             await UploadAssetsAsync();
@@ -53,8 +95,18 @@ namespace SharePoint.IO.Services
             await SetScriptAsync();
         }
 
+        /// <summary>
+        /// Sets the view port meta tag asynchronous.
+        /// </summary>
+        /// <returns></returns>
         public Task SetViewPortMetaTagAsync() => _webManager.SetViewPortMetaTagAsync();
 
+        /// <summary>
+        /// Sets the script asynchronous.
+        /// </summary>
+        /// <param name="scriptDescription">The script description.</param>
+        /// <param name="scriptLocation">The script location.</param>
+        /// <param name="allSites">if set to <c>true</c> [all sites].</param>
         public async Task SetScriptAsync(string scriptDescription = null, string scriptLocation = null, bool allSites = true)
         {
             if (_branding.Scripts == null)
@@ -62,6 +114,10 @@ namespace SharePoint.IO.Services
             await _jsInjector.AddJsLinkAsync(_branding.Scripts, scriptDescription, scriptLocation, allSites);
         }
 
+        /// <summary>
+        /// Uploads the xslto style library asynchronous.
+        /// </summary>
+        /// <param name="appFolder">The application folder.</param>
         public async Task UploadXsltoStyleLibraryAsync(string appFolder)
         {
             if (_branding.Xslts == null)
@@ -70,24 +126,33 @@ namespace SharePoint.IO.Services
                 await _fileShaman.UploadToStyleLibraryAsync(path, appFolder);
         }
 
+        /// <summary>
+        /// Sets the site logo asynchronous.
+        /// </summary>
         public async Task SetSiteLogoAsync()
         {
             if (string.IsNullOrEmpty(_branding.LogoUrl))
                 return;
             _web.SiteLogoUrl = GetUrl(_branding.LogoUrl);
             await _webManager.ExecuteWebQueryAsync();
-            //Console.WriteLine($"Logo set: {_web.SiteLogoUrl}");
+            _log?.LogInformation($"Logo set: {_web.SiteLogoUrl}");
         }
 
+        /// <summary>
+        /// Sets the altenate CSS asynchronous.
+        /// </summary>
         public async Task SetAltenateCssAsync()
         {
             if (string.IsNullOrEmpty(_branding.CssUrl))
                 return;
             _web.AlternateCssUrl = GetUrl(_branding.CssUrl);
             await _webManager.ExecuteWebQueryAsync();
-            //Console.WriteLine($"CSS set: {_web.AlternateCssUrl}");
+            _log?.LogInformation($"CSS set: {_web.AlternateCssUrl}");
         }
 
+        /// <summary>
+        /// Uploads the assets asynchronous.
+        /// </summary>
         public async Task UploadAssetsAsync()
         {
             if (_branding.Files == null)
@@ -96,6 +161,9 @@ namespace SharePoint.IO.Services
                 await _fileShaman.UploadToStyleLibraryAsync(path);
         }
 
+        /// <summary>
+        /// Uploads the display templates asynchronous.
+        /// </summary>
         public async Task UploadDisplayTemplatesAsync()
         {
             if (_branding.DisplayTemplates == null)
@@ -104,6 +172,10 @@ namespace SharePoint.IO.Services
                 await _pageShaman.UploadDisplayTemplateAsync(displayTemplate.Path, displayTemplate.Title, _defines);
         }
 
+        /// <summary>
+        /// Uploads the page layouts asynchronous.
+        /// </summary>
+        /// <param name="appFolder">The application folder.</param>
         public async Task UploadPageLayoutsAsync(string appFolder)
         {
             if (_branding.PageLayouts == null)

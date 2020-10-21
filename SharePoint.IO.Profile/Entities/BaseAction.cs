@@ -46,18 +46,28 @@ namespace SharePoint.IO.Profile.Entities
         public ActionCollection Actions { get; set; }
 
         /// <summary>
+        /// Gets or sets the log.
+        /// </summary>
+        /// <value>
+        /// The log.
+        /// </value>
+        public ILogger Log { get; set; }
+
+        /// <summary>
         /// Iterates the row from the CSV file
         /// </summary>
         /// <param name="tag">The tag.</param>
         /// <param name="context">The ClientContext instance.</param>
         /// <param name="entries">The collection values per row.</param>
-        /// <param name="log">The log.</param>
-        public abstract Task IterateCollectionAsync(object tag, ClientContext context, Collection<string> entries, ILogger log);
+        /// <returns></returns>
+        public abstract Task IterateCollectionAsync(object tag, ClientContext context, Collection<string> entries);
 
         /// <summary>
         /// Executes the business logic
         /// </summary>
-        /// <param name="log">The log.</param>
-        public abstract Task ExecuteAsync(BaseAction parentAction, DateTime CurrentTime, ILogger log);
+        /// <param name="parentAction">The parent action.</param>
+        /// <param name="CurrentTime">The current time.</param>
+        /// <returns></returns>
+        public abstract Task ExecuteAsync(BaseAction parentAction, DateTime CurrentTime);
     }
 }

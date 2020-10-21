@@ -19,7 +19,14 @@ namespace SharePoint.IO.Profile.Services
     /// </summary>
     public class CsvWriter : StreamWriter
     {
-        public CsvWriter(string path) : base(path) { }
+        readonly ILogger _log;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CsvWriter"/> class.
+        /// </summary>
+        /// <param name="path">The path.</param>
+        /// <param name="log">The log.</param>
+        public CsvWriter(string path, ILogger log) : base(path) => _log = log;
 
         /// <summary>
         /// Executes the specified CSV writer.
@@ -27,7 +34,7 @@ namespace SharePoint.IO.Profile.Services
         /// <param name="row">The user entry instance.</param>
         /// <param name="log">The log.</param>
         /// <exception cref="System.ArgumentNullException">If the userdata instance is null</exception>
-        public void CsvWrite(CsvRow row, ILogger log)
+        public void CsvWrite(CsvRow row)
         {
             try
             {
@@ -45,7 +52,7 @@ namespace SharePoint.IO.Profile.Services
                 if (row.Entry.Contains("\r\n")) row.Entry = row.Entry.Replace("\r\n", " ");
                 WriteLine(row.Entry);
             }
-            catch (Exception e) { log.LogCritical(e, string.Empty); }
+            catch (Exception e) { _log?.LogCritical(e, string.Empty); }
         }
     }
 }

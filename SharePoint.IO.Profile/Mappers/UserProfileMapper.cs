@@ -74,16 +74,28 @@ namespace SharePoint.IO.Profile.Mappers
         /// The index of the user name.
         /// </value>
         public int UserNameIndex { get; set; }
+        /// <summary>
+        /// Gets or sets the sleep period.
+        /// </summary>
+        /// <value>
+        /// The sleep period.
+        /// </value>
         public int SleepPeriod { get; set; }
+        /// <summary>
+        /// Gets or sets a value indicating whether this <see cref="UserProfileMapper"/> is keep.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if keep; otherwise, <c>false</c>.
+        /// </value>
         public bool Keep { get; set; }
 
         /// <summary>
         /// Iterates the row from the CSV file
         /// </summary>
+        /// <param name="tag">The tag.</param>
         /// <param name="context">The ClientContext instance.</param>
         /// <param name="entries">The collection values per row.</param>
-        /// <param name="log">The log.</param>
-        public override async Task IterateCollectionAsync(object tag, ClientContext context, Collection<string> entries, ILogger log)
+        public override async Task IterateCollectionAsync(object tag, ClientContext context, Collection<string> entries)
         {
             var profileService = (UserProfileServiceSoapClient)tag;
             var data = new List<PropertyData>();
@@ -97,18 +109,18 @@ namespace SharePoint.IO.Profile.Mappers
                         property = item.Process(property, entries[item.Index], this) as PropertyData;
                         data.Add(property);
                     }
-                    catch (Exception e) { log.LogCritical(e, $"Error occured whilst processing account '{entries[UserNameIndex]}', Property '{item.Name}'. Stack {e.StackTrace}"); }
+                    catch (Exception e) { Log?.LogCritical(e, $"Error occured whilst processing account '{entries[UserNameIndex]}', Property '{item.Name}'. Stack {e.StackTrace}"); }
                 }
-            log.LogInformation($"Attempting to update profile for account '{entries[UserNameIndex]}'");
+            Log?.LogInformation($"Attempting to update profile for account '{entries[UserNameIndex]}'");
             try
             {
                 await profileService.ModifyUserPropertyByAccountNameAsync(entries[UserNameIndex], data.ToArray());
-                log.LogInformation(entries[UserNameIndex], "SUCCESS");
+                Log?.LogInformation(entries[UserNameIndex], "SUCCESS");
             }
             catch (Exception e)
             {
-                log.LogCritical(e, $"Error occured whilst processing account '{entries[UserNameIndex]}' - the account does not exist. InnerException: {e.Message}");
-                log.LogInformation(entries[UserNameIndex], "FAILURE");
+                Log?.LogCritical(e, $"Error occured whilst processing account '{entries[UserNameIndex]}' - the account does not exist. InnerException: {e.Message}");
+                Log?.LogInformation(entries[UserNameIndex], "FAILURE");
             }
         }
 
@@ -116,30 +128,30 @@ namespace SharePoint.IO.Profile.Mappers
         /// Executes the business logic
         /// </summary>
         /// <param name="log">The log.</param>
-        public override Task ExecuteAsync(BaseAction parentAction, DateTime currentTime, ILogger log)
+        public override Task ExecuteAsync(BaseAction parentAction, DateTime currentTime)
         {
             var credential = !string.IsNullOrEmpty(TenantAdminLogin)
                 ? CredentialManager.ReadGeneric(TenantAdminLogin)
                 : new NetworkCredential(TenantAdminUserName, TenantAdminPassword);
             if (parentAction != null)
                 Properties = parentAction.Properties;
-            var csvReader = new CsvReader();
+            var csvReader = new CsvReader(Log);
             var csvFiles = Directory.GetFiles(DirectoryLocation, "*.csv", SearchOption.TopDirectoryOnly);
-            log.LogInformation($"Attempting to get files from directory 'location' {DirectoryLocation}. Number of files found {csvFiles.Length}");
+            Log?.LogInformation($"Attempting to get files from directory 'location' {DirectoryLocation}. Number of files found {csvFiles.Length}");
             foreach (string csvFile in csvFiles)
             {
-                log.LogInformation($"Attempting to read CSV file '{csvFile}' from location {DirectoryLocation}");
-                log.LogInformation($"Pausing the utility for '{SleepPeriod}' seconds so ASMX service is not overloaded");
+                Log?.LogInformation($"Attempting to read CSV file '{csvFile}' from location {DirectoryLocation}");
+                Log?.LogInformation($"Pausing the utility for '{SleepPeriod}' seconds so ASMX service is not overloaded");
                 Thread.Sleep(SleepPeriod * 1000);
                 using (var reader = new StreamReader(csvFile))
                 {
-                    log.LogInformation($"Establishing connection with tenant at '{TenantSiteUrl}'");
+                    Log?.LogInformation($"Establishing connection with tenant at '{TenantSiteUrl}'");
                     using (var context = new ClientContext(TenantSiteUrl))
                     {
                         var site = new Uri(TenantSiteUrl);
                         try
                         {
-                            log.LogInformation($"{site}{ProfileService}");
+                            Log?.LogInformation($"{site}{ProfileService}");
                             var profileService = new UserProfileServiceSoapClient(UserProfileServiceSoapClient.EndpointConfiguration.UserProfileServiceSoap12, $"{site}{ProfileService}");
                             {
                                 //profileService.UseDefaultCredentials = false;
@@ -152,11 +164,11 @@ namespace SharePoint.IO.Profile.Mappers
                                 //    var cookie = credentials.GetAuthenticationCookie(site);
                                 //    profileService.CookieContainer = new CookieContainer();
                                 //    profileService.CookieContainer.Add(new Cookie(FedAuthCookieName, cookie.TrimStart(SPOIDCookieValue.ToCharArray()), string.Empty, site.Authority));
-                                csvReader.Execute(reader, async (entries, y) => { await IterateCollectionAsync(profileService, context, entries, log); }, log);
+                                csvReader.Execute(reader, async (entries, y) => { await IterateCollectionAsync(profileService, context, entries); });
                                 //}
                             }
                         }
-                        catch (Exception e) { log.LogCritical(e, e.Message); }
+                        catch (Exception e) { Log?.LogCritical(e, e.Message); }
                     }
                 }
                 if (!Keep)

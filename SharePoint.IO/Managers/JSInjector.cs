@@ -1,4 +1,5 @@
-﻿using Microsoft.SharePoint.Client;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.SharePoint.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,27 +8,47 @@ using System.Threading.Tasks;
 
 namespace SharePoint.IO.Managers
 {
+    /// <summary>
+    /// JsInjector
+    /// </summary>
     public class JsInjector
     {
         readonly Web _web;
         readonly ClientRuntimeContext _ctx;
+        readonly ILogger _log;
         const string DefaultScriptDescription = "Custom Script";
         const string DefaultScriptLocation = "ScriptLink";
 
-        public JsInjector(Web web)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="JsInjector" /> class.
+        /// </summary>
+        /// <param name="web">The web.</param>
+        /// <param name="log">The log.</param>
+        public JsInjector(Web web, ILogger log)
         {
             _web = web;
             _ctx = web.Context;
+            _log = log;
         }
 
+        /// <summary>
+        /// Adds the js link asynchronous.
+        /// </summary>
+        /// <param name="scripts">The scripts.</param>
+        /// <param name="scriptDescription">The script description.</param>
+        /// <param name="scriptLocation">The script location.</param>
+        /// <param name="allSites">if set to <c>true</c> [all sites].</param>
         public async Task AddJsLinkAsync(IEnumerable<string> scripts, string scriptDescription, string scriptLocation = null, bool allSites = true)
         {
-            if (scriptLocation == null)
-                scriptLocation = DefaultScriptLocation;
             var b = GenerateJsScriptBlock(_web, scripts);
-            await RegisterScriptBlockAsync(_web, b, scriptDescription, scriptLocation, allSites);
+            await RegisterScriptBlockAsync(_web, b, scriptDescription, scriptLocation ?? DefaultScriptLocation, allSites);
         }
 
+        /// <summary>
+        /// Deletes the script links asynchronous.
+        /// </summary>
+        /// <param name="web">The web.</param>
+        /// <param name="scriptLocation">The script location.</param>
         public async Task DeleteScriptLinksAsync(Web web, string scriptLocation = null)
         {
             if (scriptLocation == null)
@@ -42,11 +63,11 @@ namespace SharePoint.IO.Managers
 
         async Task AddScriptLinkAsync(Web web, StringBuilder b, string scriptDescription, string scriptLocation)
         {
-            var newAction = web.UserCustomActions.Add();
-            newAction.Description = scriptDescription ?? DefaultScriptDescription;
-            newAction.Location = scriptLocation ?? DefaultScriptLocation;
-            newAction.ScriptBlock = b.ToString();
-            newAction.Update();
+            var action = web.UserCustomActions.Add();
+            action.Description = scriptDescription ?? DefaultScriptDescription;
+            action.Location = scriptLocation ?? DefaultScriptLocation;
+            action.ScriptBlock = b.ToString();
+            action.Update();
             _ctx.Load(_web, s => s.UserCustomActions);
             await _ctx.ExecuteQueryAsync();
         }
@@ -57,7 +78,7 @@ namespace SharePoint.IO.Managers
             await _ctx.ExecuteQueryAsync();
             await DeleteScriptLinksAsync(web);
             await AddScriptLinkAsync(web, b, scriptDescription, scriptLocation);
-            //Console.WriteLine($"JS Injection register for: {web.ServerRelativeUrl}");
+            _log?.LogInformation($"JS Injection register for: {web.ServerRelativeUrl}");
             if (allSite)
                 foreach (var s in web.Webs)
                     await RegisterScriptBlockAsync(s, b, scriptDescription, scriptLocation, allSite);

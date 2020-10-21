@@ -47,20 +47,18 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="tag">The tag.</param>
         /// <param name="context">The ClientContext instance.</param>
         /// <param name="entries">The collection values per row.</param>
-        /// <param name="log">The log.</param>
         /// <exception cref="System.NotImplementedException"></exception>
-        public override Task IterateCollectionAsync(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries, ILogger log) => throw new NotImplementedException();
+        public override Task IterateCollectionAsync(object tag, Microsoft.SharePoint.Client.ClientContext context, Collection<string> entries) => throw new NotImplementedException();
 
         /// <summary>
         /// Executes the LDAP logic
         /// </summary>
         /// <param name="parentAction">Inherit parent properties = null</param>
         /// <param name="currentTime">Locked program timestamp value</param>
-        /// <param name="log">The logger.</param>
-        public override async Task ExecuteAsync(BaseAction parentAction, DateTime currentTime, ILogger log)
+        public override async Task ExecuteAsync(BaseAction parentAction, DateTime currentTime)
         {
-            await ExtractLdapResultsAsync(log, currentTime);
-            log.LogInformation($"Successfully extracted {_totalUsers} user objects from {ServerName} with {_totalFailures} failures");
+            await ExtractLdapResultsAsync(currentTime);
+            Log?.LogInformation($"Successfully extracted {_totalUsers} user objects from {ServerName} with {_totalFailures} failures");
         }
 
         /// <summary>
@@ -73,14 +71,14 @@ namespace SharePoint.IO.Profile.Mappers
         /// <param name="accountDisabled">if set to <c>true</c> [account disabled].</param>
         /// <param name="attr">The attribute.</param>
         /// <returns></returns>
-        protected virtual bool TryParseValue(ILogger log, PropertyBase item, CsvRow entry, string value, bool accountDisabled, DirectoryAttribute attr, SearchResultEntry sre) => false;
+        protected virtual bool TryParseValue(PropertyBase item, CsvRow entry, string value, bool accountDisabled, DirectoryAttribute attr, SearchResultEntry sre) => false;
 
         /// <summary>
         /// Performs LDAP Search and extracts attributes.
         /// </summary>
         /// <param name="logger">The logger.</param>
         /// <param name="currentTime">Locked program timestamp value</param>
-        Task ExtractLdapResultsAsync(ILogger log, DateTime currentTime)
+        Task ExtractLdapResultsAsync(DateTime currentTime)
         {
             var attributesToAdd = new List<string>();
             foreach (var item in Properties)
@@ -92,10 +90,10 @@ namespace SharePoint.IO.Profile.Mappers
             var searchOptions = new SearchOptionsControl(System.DirectoryServices.Protocols.SearchOption.DomainScope);
             searchRequest.Controls.Add(pageResponse);
             searchRequest.Controls.Add(searchOptions);
-            log.LogInformation($"Establishing LDAP Connection to: {ServerName}");
+            Log?.LogInformation($"Establishing LDAP Connection to: {ServerName}");
             using (var connection = CreateLdapConnection())
             {
-                log.LogInformation($"Performing a {BatchAction} operation with filter: {ldapFilter}");
+                Log?.LogInformation($"Performing a {BatchAction} operation with filter: {ldapFilter}");
                 while (true)
                 {
                     SearchResponse response = null;
@@ -114,14 +112,14 @@ namespace SharePoint.IO.Profile.Mappers
                         }
 
                     // Create CSV file for current batch of users
-                    using (var batchFile = new CsvWriter(filePath))
+                    using (var batchFile = new CsvWriter(filePath, Log))
                     {
                         // Create column headings for CSV file
                         var heading = new CsvRow();
                         // Iterate over attribute headings
                         foreach (var item in Properties)
                             heading.Add(item.Name);
-                        batchFile.CsvWrite(heading, log);
+                        batchFile.CsvWrite(heading);
                         // Create new CSV row for each user
                         foreach (SearchResultEntry sre in response.Entries)
                         {
@@ -140,17 +138,16 @@ namespace SharePoint.IO.Profile.Mappers
                                     var userAccountControl = int.Parse(userAccountControlValue);
                                     accountDisabled = (userAccountControl & ACCOUNTDISABLE) == ACCOUNTDISABLE;
                                 }
-                                catch (Exception e) { log.LogCritical(e, e.Message); }
+                                catch (Exception e) { Log?.LogCritical(e, e.Message); }
                             }
 
                             // Extract each user attribute specified in XML file
                             foreach (var item in Properties)
-                            {
                                 try
                                 {
                                     var attr = sre.Attributes[item.Mapping];
                                     var value = (attr != null && attr.Count > 0 ? attr[0].ToString() : string.Empty);
-                                    if (syncValue && TryParseValue(log, item, entry, value, accountDisabled, attr, sre))
+                                    if (syncValue && TryParseValue(item, entry, value, accountDisabled, attr, sre))
                                         continue;
                                     if (item.Index == UserNameIndex)
                                     {
@@ -159,22 +156,14 @@ namespace SharePoint.IO.Profile.Mappers
                                     }
                                     entry.Add(syncValue ? value : string.Empty);
                                 }
-                                catch (Exception e)
-                                {
-                                    if (log != null)
-                                    {
-                                        log.LogCritical(e, string.Empty);
-                                        _totalFailures++;
-                                    }
-                                }
-                            }
+                                catch (Exception e) { Log?.LogCritical(e, string.Empty); _totalFailures++; }
                             // Write current user to CSV file
-                            batchFile.CsvWrite(entry, log);
+                            batchFile.CsvWrite(entry);
                             // Increment user count value
                             _totalUsers++;
                         }
                     }
-                    log.LogInformation($"Successfully extracted {currentBatchSize} users to {filePath} - the total user count is: {_totalUsers}");
+                    Log?.LogInformation($"Successfully extracted {currentBatchSize} users to {filePath} - the total user count is: {_totalUsers}");
                     if (pageResponse.Cookie.Length == 0)
                         break;
                 }
@@ -252,7 +241,7 @@ namespace SharePoint.IO.Profile.Mappers
         {
             var hostEntry = Dns.GetHostEntry(ServerName);
             if (hostEntry == null)
-                throw new InvalidOperationException(@"Unable to find host {ServerName}");
+                throw new InvalidOperationException($"Unable to find host {ServerName}");
             var address = hostEntry.AddressList.FirstOrDefault();
             var connectionString = address.ToString() + ":" + PortNumber;
             return new LdapDirectoryIdentifier(connectionString);
@@ -260,7 +249,7 @@ namespace SharePoint.IO.Profile.Mappers
 
         bool VerifyServerCertificate(LdapConnection connection, X509Certificate certificate)
         {
-            var id = connection.Directory as LdapDirectoryIdentifier;
+            //var id = connection.Directory as LdapDirectoryIdentifier;
             var store = new X509Store("CertStore", StoreLocation.LocalMachine);
             store.Open(OpenFlags.ReadWrite);
             var newcert = new X509Certificate2(certificate);
@@ -270,7 +259,7 @@ namespace SharePoint.IO.Profile.Mappers
 
         X509Certificate QueryClientCertificate(LdapConnection connection, byte[][] trustedCAs)
         {
-            var id = connection.Directory as LdapDirectoryIdentifier;
+            //var id = connection.Directory as LdapDirectoryIdentifier;
             if (IsTrustedContosoCA(trustedCAs))
             {
                 var cert = new X509Certificate();

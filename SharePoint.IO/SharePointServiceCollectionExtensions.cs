@@ -25,10 +25,14 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="config">The configuration.</param>
         /// <returns></returns>
         /// <exception cref="System.ArgumentNullException">services</exception>
-        public static IServiceCollection AddO365Context(this IServiceCollection services, ISharePointConnectionString config)
+        public static IServiceCollection AddSharePointContext(this IServiceCollection services, ISharePointConnectionString config)
         {
             if (services == null)
                 throw new ArgumentNullException(nameof(services));
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+            if (string.IsNullOrEmpty(config.String))
+                throw new ArgumentNullException(nameof(config.String));
             services.Add(ServiceDescriptor.Singleton<ISharePointContext>(new SharePointContext(new ParsedSharePointOptions(config))));
             return services;
         }
@@ -43,6 +47,8 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             if (services == null)
                 throw new ArgumentNullException(nameof(services));
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
             services.Add(ServiceDescriptor.Singleton<ISharePointContext>(new SharePointContext(config)));
             return services;
         }

@@ -2,11 +2,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Company>Contoso</Company>
+    <RepositoryUrl>https://github.com/netcode-io/sharepoint.io.net</RepositoryUrl>
+    <Description>A SharePoint system transport library</Description>
+    <Authors>Contoso</Authors>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Contoso.Extensions" Version="1.0.6" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="3.1.9" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="3.1.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.9" />
     <PackageReference Include="TTCUE.NetCore.SharepointOnline.CSOM.16.1.8029.1200" Version="16.1.8029.1200" />
   </ItemGroup>
 </Project>

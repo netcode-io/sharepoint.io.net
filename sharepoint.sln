@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharePoint.IO.Profile", "Sh
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharePoint.IO", "SharePoint.IO\SharePoint.IO.csproj", "{765031FA-C83B-48FB-B70D-3DA340CA83D8}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharePoint.IO.Tests", "SharePoint.IO.Tests\SharePoint.IO.Tests.csproj", "{E018CCFE-C1D6-423B-8609-46B29D76C041}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharePoint.IO.Profile.Tests", "SharePoint.IO.Profile.Tests\SharePoint.IO.Profile.Tests.csproj", "{9DDF26AC-5D39-4E74-9998-8C19D7BE150B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{765031FA-C83B-48FB-B70D-3DA340CA83D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{765031FA-C83B-48FB-B70D-3DA340CA83D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{765031FA-C83B-48FB-B70D-3DA340CA83D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E018CCFE-C1D6-423B-8609-46B29D76C041}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E018CCFE-C1D6-423B-8609-46B29D76C041}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E018CCFE-C1D6-423B-8609-46B29D76C041}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E018CCFE-C1D6-423B-8609-46B29D76C041}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DDF26AC-5D39-4E74-9998-8C19D7BE150B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DDF26AC-5D39-4E74-9998-8C19D7BE150B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DDF26AC-5D39-4E74-9998-8C19D7BE150B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DDF26AC-5D39-4E74-9998-8C19D7BE150B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,29 +1,60 @@
-﻿using Microsoft.SharePoint.Client;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.SharePoint.Client;
 using Microsoft.SharePoint.Client.Publishing;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace SharePoint.IO.Managers
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public class PublishingPageManager
     {
         readonly Web _web;
         readonly ClientContext _ctx;
+        readonly ILogger _log;
 
-        public PublishingPageManager(Web web, ClientContext ctx)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PublishingPageManager"/> class.
+        /// </summary>
+        /// <param name="web">The web.</param>
+        /// <param name="ctx">The client context.</param>
+        /// <param name="log">The log.</param>
+        public PublishingPageManager(Web web, ClientContext ctx, ILogger log)
         {
             _web = web;
             _ctx = ctx;
+            _log = log;
         }
 
+        /// <summary>
+        /// Gets the page.
+        /// </summary>
+        /// <param name="pageName">Name of the page.</param>
+        /// <returns></returns>
         public File GetPage(string pageName) => _web.GetFileByServerRelativeUrl($"{_web.ServerRelativeUrl.TrimEnd('/')}/Pages/{pageName}");
 
+        /// <summary>
+        /// Creates the page from layout asynchronous.
+        /// </summary>
+        /// <param name="layoutRelativeUrl">The layout relative URL.</param>
+        /// <param name="pageNameWithExtension">The page name with extension.</param>
+        /// <param name="title">The title.</param>
+        /// <returns></returns>
         public Task<ListItem> CreatePageFromLayoutAsync(string layoutRelativeUrl, string pageNameWithExtension, string title) =>
             CreatePageFromLayoutWithMetaAsync(layoutRelativeUrl, pageNameWithExtension, new Dictionary<string, string>
             {
                 { "Title", title }
             });
 
+        /// <summary>
+        /// Creates the page from layout with meta asynchronous.
+        /// </summary>
+        /// <param name="layoutRelativeUrl">The layout relative URL.</param>
+        /// <param name="pageNameWithExtension">The page name with extension.</param>
+        /// <param name="meta">The meta.</param>
+        /// <returns></returns>
         public async Task<ListItem> CreatePageFromLayoutWithMetaAsync(string layoutRelativeUrl, string pageNameWithExtension, Dictionary<string, string> meta)
         {
             var page = await CreatePublishingPageAsync(layoutRelativeUrl, pageNameWithExtension);
@@ -34,6 +65,11 @@ namespace SharePoint.IO.Managers
             return pageItem;
         }
 
+        /// <summary>
+        /// Gets the page layout item asynchronous.
+        /// </summary>
+        /// <param name="layoutRelativeUrl">The layout relative URL.</param>
+        /// <returns></returns>
         public async Task<ListItem> GetPageLayoutItemAsync(string layoutRelativeUrl)
         {
             _ctx.Load(_ctx.Site.RootWeb, w => w.ServerRelativeUrl);
@@ -45,6 +81,12 @@ namespace SharePoint.IO.Managers
             return pageLayoutItem;
         }
 
+        /// <summary>
+        /// Creates the publishing page asynchronous.
+        /// </summary>
+        /// <param name="layoutRelativeUrl">The layout relative URL.</param>
+        /// <param name="pageNameWithExtension">The page name with extension.</param>
+        /// <returns></returns>
         public async Task<PublishingPage> CreatePublishingPageAsync(string layoutRelativeUrl, string pageNameWithExtension)
         {
             var layoutItem = await GetPageLayoutItemAsync(layoutRelativeUrl);

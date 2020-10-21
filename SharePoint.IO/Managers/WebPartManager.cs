@@ -1,22 +1,54 @@
-﻿using Microsoft.SharePoint.Client;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.SharePoint.Client;
 using Microsoft.SharePoint.Client.WebParts;
 using System.Threading.Tasks;
 
 namespace SharePoint.IO.Managers
 {
+    /// <summary>
+    /// WebPartManager
+    /// </summary>
     public class WebPartManager
     {
         readonly ClientContext _ctx;
+        readonly ILogger _log;
 
-        public WebPartManager(ClientContext ctx, File page)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="WebPartManager" /> class.
+        /// </summary>
+        /// <param name="ctx">The client context.</param>
+        /// <param name="page">The page.</param>
+        /// <param name="log">The log.</param>
+        public WebPartManager(ClientContext ctx, File page, ILogger log)
         {
             _ctx = ctx;
             CurrentPage = page;
+            _log = log;
         }
 
+        /// <summary>
+        /// Gets the current page.
+        /// </summary>
+        /// <value>
+        /// The current page.
+        /// </value>
         public File CurrentPage { get; }
 
+        /// <summary>
+        /// Adds the web part to layout asynchronous.
+        /// </summary>
+        /// <param name="webpartPath">The webpart path.</param>
+        /// <param name="zone">The zone.</param>
+        /// <param name="order">The order.</param>
+        /// <returns></returns>
         public Task<string> AddWebPartToLayoutAsync(string webpartPath, string zone, int order) => AddWebPartAsync(System.IO.File.ReadAllText(webpartPath), zone, order);
+        /// <summary>
+        /// Adds the web part asynchronous.
+        /// </summary>
+        /// <param name="xml">The XML.</param>
+        /// <param name="zone">The zone.</param>
+        /// <param name="order">The order.</param>
+        /// <returns></returns>
         public async Task<string> AddWebPartAsync(string xml, string zone, int order)
         {
             await CheckoutPageAsync();
@@ -28,6 +60,9 @@ namespace SharePoint.IO.Managers
             return xml;
         }
 
+        /// <summary>
+        /// Deletes all asynchronous.
+        /// </summary>
         public async Task DeleteAllAsync()
         {
             await CheckoutPageAsync();

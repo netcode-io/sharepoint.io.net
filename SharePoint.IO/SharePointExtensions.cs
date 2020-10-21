@@ -8,11 +8,11 @@ namespace SharePoint.IO
     public static class SharePointExtensions
     {
         /// <summary>
-        /// Files the manager.
+        /// Gets the file manager.
         /// </summary>
         /// <param name="source">The source.</param>
         /// <param name="url">The URL.</param>
         /// <returns></returns>
-        public static SharePointFileManager FileManager(this ClientContext source, string url = null) => new SharePointFileManager(source, url);
+        public static SharePointFileManager GetFileManager(this ClientContext source, string url = null) => new SharePointFileManager(source, url);
     }
 }
