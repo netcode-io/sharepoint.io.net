@@ -9,6 +9,6 @@ namespace SharePoint.IO
         public static IConfiguration Configuration { get; } = new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).Build();
         public static IServiceProvider Services { get; } = ConfigureServices(new ServiceCollection()).BuildServiceProvider();
         public static IServiceCollection ConfigureServices(IServiceCollection services) => services.AddSharePointContext(new Config());
-        string ISharePointConnectionString.String => Configuration.GetConnectionString("SharePoint");
+        string ISharePointConnectionString.this[string name] => Configuration.GetConnectionString("SharePoint");
     }
 }

@@ -4,6 +4,7 @@ using SharePoint.IO.Services;
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using File = Microsoft.SharePoint.Client.File;
 
@@ -45,6 +46,8 @@ namespace SharePoint.IO.Managers
         /// <param name="serverFolder">The server folder.</param>
         public async Task UploadToStyleLibraryAsync(string path, string serverFolder = null)
         {
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException(nameof(path));
             var file = path.Replace("\\", "/");
             var libraryUrl = $"{_web.ServerRelativeUrl.TrimEnd(TrimChars)}/{StyleLibraryUrl}/";
             _log?.LogInformation($"Uploading file {file} to {libraryUrl}{serverFolder}");
@@ -57,56 +60,106 @@ namespace SharePoint.IO.Managers
         /// <summary>
         /// Adds the file asynchronous.
         /// </summary>
-        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="listUrl">The list URL.</param>
         /// <param name="path">The path.</param>
         /// <param name="file">The file.</param>
         /// <param name="serverFolder">The server folder.</param>
         /// <param name="defines">The defines.</param>
         /// <returns></returns>
-        public Task<File> AddFileAsync(string libraryUrl, string path, string file = null, string serverFolder = null, string[] defines = null) => AddFileAsync(libraryUrl, GetContent(path, defines), file ?? Path.GetFileName(path), serverFolder);
+        public Task<File> AddFileAsync(string listUrl, string path, string file = null, string serverFolder = null, string[] defines = null) => AddFileAsync(listUrl, GetContentStream(path, defines), file ?? Path.GetFileName(path), serverFolder);
         /// <summary>
         /// Adds the file asynchronous.
         /// </summary>
-        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="listUrl">The list URL.</param>
         /// <param name="stream">The stream.</param>
         /// <param name="file">The file.</param>
         /// <param name="serverFolder">The server folder.</param>
         /// <param name="defines">The defines.</param>
         /// <returns></returns>
-        public Task<File> AddFileAsync(string libraryUrl, Stream stream, string file, string serverFolder = null, string[] defines = null) => AddFileAsync(libraryUrl, GetContent(stream, defines), file, serverFolder);
+        public Task<File> AddFileAsync(string listUrl, Stream stream, string file, string serverFolder = null, string[] defines = null) => AddFileAsync(listUrl, GetContentStream(stream, defines), file, serverFolder);
         /// <summary>
         /// Adds the file asynchronous.
         /// </summary>
-        /// <param name="libraryUrl">The library URL.</param>
+        /// <param name="listUrl">The list URL.</param>
         /// <param name="content">The content.</param>
         /// <param name="file">The file.</param>
         /// <param name="serverFolder">The server folder.</param>
         /// <returns></returns>
-        public async Task<File> AddFileAsync(string libraryUrl, byte[] content, string file, string serverFolder)
+        public async Task<File> AddFileAsync(string listUrl, Stream content, string file, string serverFolder)
         {
-            var serverUrl = $"{libraryUrl.EnsureEndsWith("/")}{serverFolder}";
-            var fileUrl = $"{serverUrl.EnsureEndsWith("/")}{file}";
+            if (string.IsNullOrEmpty(listUrl))
+                throw new ArgumentNullException(nameof(listUrl));
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+            if (string.IsNullOrEmpty(file))
+                throw new ArgumentNullException(nameof(file));
+            var serverUrl = $"{listUrl.Replace("\\", "/").EnsureEndsWith("/")}{serverFolder.Replace("\\", "/")}";
+            var fileUrl = $"{serverUrl.EnsureEndsWith("/")}{file.Replace("\\", "/")}";
             var folder = _web.GetFolderByServerRelativeUrl(serverUrl);
             var spFile = new FileCreationInformation
             {
-                Content = content,
+                ContentStream = content,
                 Url = fileUrl,
                 Overwrite = true
             };
-            _log?.LogInformation($"Adding file {file} to {libraryUrl}{serverFolder}");
+            _log?.LogInformation($"Adding file {file} to {listUrl}{serverFolder}");
             var uploadedFile = folder.Files.Add(spFile);
             _web.Context.Load(uploadedFile, f => f.CheckOutType, f => f.Level);
-            await _web.Context.ExecuteQueryAsync();
-            return uploadedFile;
+            var attempt = 0;
+            while (true)
+                try
+                {
+                    await _web.Context.ExecuteQueryAsync();
+                    return uploadedFile;
+                }
+                catch (ServerException e) when (e.Message == "File Not Found." && attempt++ <= 2)
+                {
+                    _log?.LogInformation($"Retry{attempt}: {e.Message}");
+                    Thread.Sleep(100);
+                }
         }
 
-        byte[] GetContent(string path, string[] defines) =>
-            defines == null
-                ? System.IO.File.ReadAllBytes(path)
-                : Encoding.UTF8.GetBytes(ContentService.Process(System.IO.File.ReadAllText(path), defines));
-
-        byte[] GetContent(Stream stream, string[] defines)
+        /// <summary>
+        /// Deletes the file asynchronous.
+        /// </summary>
+        /// <param name="listUrl">The list URL.</param>
+        /// <param name="file">The file.</param>
+        /// <param name="serverFolder">The server folder.</param>
+        public async Task DeleteFileAsync(string listUrl, string file, string serverFolder)
         {
+            if (string.IsNullOrEmpty(listUrl))
+                throw new ArgumentNullException(nameof(listUrl));
+            if (string.IsNullOrEmpty(file))
+                throw new ArgumentNullException(nameof(file));
+            var serverUrl = $"{listUrl.Replace("\\", "/").EnsureEndsWith("/")}{serverFolder.Replace("\\", "/")}";
+            var fileUrl = $"{serverUrl.EnsureEndsWith("/")}{file.Replace("\\", "/")}";
+            var f = _web.GetFileByServerRelativeUrl(fileUrl);
+            _log?.LogInformation($"Deleting file {file} from {listUrl}{serverFolder}");
+            _web.Context.Load(f);
+            f.DeleteObject();
+            var attempt = 0;
+            while (true)
+                try
+                {
+                    await _web.Context.ExecuteQueryAsync();
+                    return;
+                }
+                catch (ServerException e) when (e.Message == "File Not Found." && attempt++ <= 2)
+                {
+                    _log?.LogInformation($"Retry{attempt}: {e.Message}");
+                    Thread.Sleep(100);
+                }
+        }
+
+        Stream GetContentStream(string path, string[] defines) =>
+            defines == null || defines.Length == 0
+                ? System.IO.File.OpenRead(path)
+                : (Stream)new MemoryStream(Encoding.UTF8.GetBytes(ContentService.Process(System.IO.File.ReadAllText(path), defines)));
+
+        Stream GetContentStream(Stream stream, string[] defines)
+        {
+            if (defines == null || defines.Length == 0)
+                return stream;
             byte[] bytes;
             using (var s = new MemoryStream())
             {
@@ -115,9 +168,7 @@ namespace SharePoint.IO.Managers
                     stream.Position = 0;
                 bytes = s.ToArray();
             }
-            return defines == null
-                ? bytes
-                : Encoding.UTF8.GetBytes(ContentService.Process(Encoding.UTF8.GetString(bytes), defines));
+            return new MemoryStream(Encoding.UTF8.GetBytes(ContentService.Process(Encoding.UTF8.GetString(bytes), defines)));
         }
 
         /// <summary>
@@ -147,7 +198,7 @@ namespace SharePoint.IO.Managers
         /// <param name="fileName">Name of the file.</param>
         /// <param name="filePath">The file path.</param>
         /// <param name="fileFolder">The file folder.</param>
-        public async Task CheckOutFileAsync(string fileName, string filePath, string fileFolder)
+        public async Task CheckOutFileAsync(string fileName, string filePath, string fileFolder = null)
         {
             var fileUrl = $"{filePath}{fileFolder}{(string.IsNullOrEmpty(fileFolder) ? string.Empty : "/")}{fileName}";
             var file = _web.GetFileByServerRelativeUrl(fileUrl);

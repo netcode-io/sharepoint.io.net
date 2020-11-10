@@ -27,9 +27,9 @@ namespace SharePoint.IO
         /// <summary>
         /// Initializes a new instance of the <see cref="SharePointContext"/> class.
         /// </summary>
-        /// <param name="config">The configuration.</param>
-        public SharePointContext(ISharePointOptions config)
-            : this(config.Endpoint, config.ServiceLogin) { }
+        /// <param name="options">The configuration.</param>
+        public SharePointContext(ISharePointOptions options)
+            : this(options.Endpoint, options.ServiceLogin) { }
         SharePointContext(string endpoint, NetworkCredential credential)
         {
             _endpoint = endpoint;
